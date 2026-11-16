@@ -291,12 +291,16 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); retu
 const saved = lsGet(LS_KEY, {});
 const S = {
   trades: saved.trades || [],
-  settings: { currency: 'FCFA', capital: 0, firstName: 'Yapobi', lastName: 'Adejare', ...(saved.settings || {}) },
+  settings: { currency: 'FCFA', capital: 0, firstName: 'Alex', nickname: 'le Boss', ...(saved.settings || {}) },
   meta: { lastBackup: null, welcomed: false, ...(saved.meta || {}) },
   prefs: { theme: 'auto', view: 'cal', ...lsGet(LS_PREF, {}) },
   month: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   period: 'all', query: '', installEvt: null, persisted: false
 };
+
+/* migration: old default names removed */
+try { if (btoa(S.settings.firstName || '') === 'WWFwb2Jp') S.settings.firstName = 'Alex'; } catch {}
+if ('lastName' in S.settings) { delete S.settings.lastName; if (!S.settings.nickname) S.settings.nickname = 'le Boss'; }
 
 /* ---------- utils ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -339,11 +343,11 @@ function removeTrade(id) { S.trades = S.trades.filter(x => x.id !== id); persist
 
 /* ---------- greeting ---------- */
 function greeting() {
-  const f = (S.settings.firstName || '').trim(), l = (S.settings.lastName || '').trim();
+  const f = (S.settings.firstName || '').trim(), l = (S.settings.nickname || '').trim();
   const h = new Date().getHours(), hi = h < 5 ? 'Bonne nuit' : h < 18 ? 'Bonjour' : 'Bonsoir';
   const opts = [];
   if (f) opts.push(`${hi} <b>${esc(f)}</b>`, `${hi} <b>${esc(f)}</b>, bon trading`);
-  if (l) opts.push(`${hi} <b>M. ${esc(l)}</b>`, `Content de vous revoir, <b>M. ${esc(l)}</b>`);
+  if (l) opts.push(`${hi} <b>${esc(l)}</b>`, `Content de vous revoir, <b>${esc(l)}</b>`, `Les marchés vous attendent, <b>${esc(l)}</b>`);
   return opts.length ? opts[Math.floor(Math.random() * opts.length)] : '';
 }
 
@@ -548,7 +552,7 @@ function viewSet() {
       </div></section>
     <section class="glass card"><div class="hd"><h2>Profil</h2></div>
       <div class="set"><div class="k">Prénom</div><input id="sFirst" value="${esc(S.settings.firstName)}" autocomplete="off"></div>
-      <div class="set"><div class="k">Nom<small>Pour « M. ${esc(S.settings.lastName || '…')} »</small></div><input id="sLast" value="${esc(S.settings.lastName)}" autocomplete="off"></div>
+      <div class="set"><div class="k">Surnom<small>Ex. : le Boss, le Patron, le Roi du trading</small></div><input id="sLast" value="${esc(S.settings.nickname)}" autocomplete="off"></div>
       <div class="set"><div class="k">Devise</div><select id="sCur">${['FCFA', '€', '$', '£', 'CHF', 'MAD', 'NGN', 'GHS', 'pts', 'pips'].map(c => `<option ${c === cur() ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
       <div class="set"><div class="k">Capital de départ<small>Pour la courbe et le rendement en %</small></div><input id="sCap" type="number" inputmode="decimal" min="0" step="any" value="${Number(S.settings.capital) || ''}" placeholder="0"></div>
       <div class="set"><div class="k">Apparence</div><select id="sTheme">${[['auto', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']].map(([v, l]) => `<option value="${v}" ${S.prefs.theme === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
@@ -657,7 +661,7 @@ function guideSheet(open) {
     <ol><li>Installez l’appli sur le nouveau téléphone (rubrique 1).</li><li>Récupérez le fichier de sauvegarde sur ce téléphone (Drive, WhatsApp…).</li><li>Dans l’appli : <b>Réglages</b>, puis <b>Restaurer une sauvegarde</b>.</li><li>Choisissez le fichier. Vos trades reviennent.</li></ol>
     <p>La restauration ajoute les trades qui manquent sans créer de doublons. Vous pouvez donc restaurer plusieurs fois sans problème.</p>`)}
   ${sec('settings', 8, 'Réglages et tableur', `
-    <ul><li><b>Prénom / Nom</b> : pour l’accueil.</li><li><b>Devise</b> : FCFA, €, $… (ne convertit pas les montants, change seulement l’affichage).</li><li><b>Apparence</b> : clair, sombre ou automatique.</li><li><b>Exporter en tableur</b> : crée un fichier CSV qui s’ouvre dans Excel ou Google Sheets.</li><li><b>Importer un CSV</b> : colonnes date (AAAA-MM-JJ), actif, sens, resultat, frais, setup, note.</li><li><b>Exemples</b> : de faux trades pour découvrir l’appli, à retirer en un geste.</li><li><b>Tout effacer</b> : supprime tous les trades. Faites une sauvegarde avant.</li></ul>`)}
+    <ul><li><b>Prénom / Surnom</b> : pour l’accueil.</li><li><b>Devise</b> : FCFA, €, $… (ne convertit pas les montants, change seulement l’affichage).</li><li><b>Apparence</b> : clair, sombre ou automatique.</li><li><b>Exporter en tableur</b> : crée un fichier CSV qui s’ouvre dans Excel ou Google Sheets.</li><li><b>Importer un CSV</b> : colonnes date (AAAA-MM-JJ), actif, sens, resultat, frais, setup, note.</li><li><b>Exemples</b> : de faux trades pour découvrir l’appli, à retirer en un geste.</li><li><b>Tout effacer</b> : supprime tous les trades. Faites une sauvegarde avant.</li></ul>`)}
   ${sec('faq', 9, 'Questions fréquentes', `
     <p><b>Faut-il internet ?</b> Seulement la première fois pour ouvrir le lien. Ensuite l’appli marche hors ligne.</p>
     <p><b>Mes trades sont-ils envoyés quelque part ?</b> Non. Ils restent sur le téléphone, sauf quand vous envoyez vous-même une sauvegarde.</p>
@@ -772,7 +776,7 @@ document.addEventListener('change', e => {
   if (id === 'sCur') { S.settings.currency = v; persist(); render(); }
   else if (id === 'sCap') { S.settings.capital = Number(v) || 0; persist(); }
   else if (id === 'sFirst') { S.settings.firstName = v.trim(); persist(); $('#hello').innerHTML = greeting(); }
-  else if (id === 'sLast') { S.settings.lastName = v.trim(); persist(); render(); $('#hello').innerHTML = greeting(); }
+  else if (id === 'sLast') { S.settings.nickname = v.trim(); persist(); render(); $('#hello').innerHTML = greeting(); }
   else if (id === 'sTheme') { S.prefs.theme = v; lsSet(LS_PREF, S.prefs); applyTheme(); }
 });
 document.addEventListener('submit', e => {
