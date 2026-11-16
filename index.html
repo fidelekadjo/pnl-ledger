@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>PnL Ledger</title>
+<meta name="description" content="Journal de trading : calendrier P&L, statistiques et sauvegardes sur votre téléphone.">
+<meta name="theme-color" content="#0d3b24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PnL Ledger">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+/* Layout: one-screen app, ambient green glow behind floating liquid-glass panels, pill tab bar at bottom */
+:root{
+  --bg:#eef3ef; --bg2:#dfeae2;
+  --blob1:#3ddc84; --blob2:#14b8a6; --blob3:#a3e635;
+  --fg:#0b1a12; --muted:#5b6b62; --faint:#8a988f;
+  --glass:rgba(255,255,255,.58); --glass-strong:rgba(255,255,255,.78);
+  --glass-edge:rgba(255,255,255,.75); --glass-shadow:rgba(18,48,30,.14);
+  --hair:rgba(10,40,20,.08);
+  --accent:#0f8a4c; --accent-fg:#fff;
+  --gain:#0f9d58; --gain-bg:rgba(15,157,88,.14); --gain-strong:rgba(15,157,88,.30);
+  --loss:#e5383b; --loss-bg:rgba(229,56,59,.12); --loss-strong:rgba(229,56,59,.28);
+  --flat-bg:rgba(120,130,125,.12);
+  --font:"Roboto Flex",Roboto,"Google Sans","Segoe UI",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --display:"Google Sans","Roboto Flex",Roboto,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --r-lg:28px; --r-md:20px; --r-sm:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#050a07; --bg2:#08130d;
+  --blob1:#0f7a44; --blob2:#0b5e57; --blob3:#3f6212;
+  --fg:#eef6f0; --muted:#97a89d; --faint:#6d7d73;
+  --glass:rgba(28,38,32,.48); --glass-strong:rgba(34,46,39,.78);
+  --glass-edge:rgba(255,255,255,.14); --glass-shadow:rgba(0,0,0,.45);
+  --hair:rgba(255,255,255,.08);
+  --accent:#34d27f; --accent-fg:#04140b;
+  --gain:#3ddc84; --gain-bg:rgba(61,220,132,.14); --gain-strong:rgba(61,220,132,.30);
+  --loss:#ff5a5f; --loss-bg:rgba(255,90,95,.13); --loss-strong:rgba(255,90,95,.30);
+  --flat-bg:rgba(255,255,255,.06);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#050a07; --bg2:#08130d;
+  --blob1:#0f7a44; --blob2:#0b5e57; --blob3:#3f6212;
+  --fg:#eef6f0; --muted:#97a89d; --faint:#6d7d73;
+  --glass:rgba(28,38,32,.48); --glass-strong:rgba(34,46,39,.78);
+  --glass-edge:rgba(255,255,255,.14); --glass-shadow:rgba(0,0,0,.45);
+  --hair:rgba(255,255,255,.08);
+  --accent:#34d27f; --accent-fg:#04140b;
+  --gain:#3ddc84; --gain-bg:rgba(61,220,132,.14); --gain-strong:rgba(61,220,132,.30);
+  --loss:#ff5a5f; --loss-bg:rgba(255,90,95,.13); --loss-strong:rgba(255,90,95,.30);
+  --flat-bg:rgba(255,255,255,.06);
+  color-scheme:dark}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  overflow-x:hidden}
+.ambient{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;background:linear-gradient(180deg,var(--bg),var(--bg2))}
+.ambient i{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55}
+.ambient i:nth-child(1){width:60vmax;height:60vmax;background:var(--blob1);top:-25vmax;left:-20vmax}
+.ambient i:nth-child(2){width:45vmax;height:45vmax;background:var(--blob2);bottom:-15vmax;right:-15vmax;opacity:.45}
+.ambient i:nth-child(3){width:30vmax;height:30vmax;background:var(--blob3);top:35%;left:55%;opacity:.25}
+
+.app{position:relative;z-index:1;max-width:620px;margin:0 auto;padding-block:14px 130px;display:flex;flex-direction:column;gap:14px}
+
+/* Liquid glass */
+.glass{background:var(--glass);backdrop-filter:blur(26px) saturate(185%);-webkit-backdrop-filter:blur(26px) saturate(185%);
+  border:1px solid var(--glass-edge);border-radius:var(--r-lg);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(255,255,255,.06),0 10px 34px var(--glass-shadow);position:relative}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(160deg,rgba(255,255,255,.28),rgba(255,255,255,0) 38%);mix-blend-mode:soft-light}
+
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 2px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(150deg,#1aa35f,#0b4d2b);display:grid;place-items:center;box-shadow:0 6px 16px rgba(15,138,76,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+.brand h1{font-family:var(--display);font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0}
+.brand small{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.sync{font-size:11.5px;color:var(--muted);padding:6px 10px;border-radius:99px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sync b{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.sync.ok b{background:var(--gain)} .sync.local b{background:#f5a524}
+
+h2{font-family:var(--display);font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0}
+.num{font-variant-numeric:tabular-nums}
+.pos{color:var(--gain)} .neg{color:var(--loss)}
+
+/* Hero summary */
+.hero{padding:18px 18px 16px;display:flex;flex-direction:column;gap:12px}
+.hero .big{font-family:var(--display);font-size:clamp(30px,9vw,40px);font-weight:800;letter-spacing:-.03em;line-height:1.05}
+.hero .row{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font-size:12.5px;font-weight:600;padding:6px 11px;border-radius:99px;background:var(--flat-bg);color:var(--muted);display:inline-flex;gap:5px;align-items:center}
+.chip.g{background:var(--gain-bg);color:var(--gain)} .chip.r{background:var(--loss-bg);color:var(--loss)}
+
+/* Calendar */
+.cal{padding:14px 12px 12px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px}
+.cal-head .m{font-family:var(--display);font-size:19px;font-weight:700;letter-spacing:-.01em;text-transform:capitalize}
+.iconbtn{width:36px;height:36px;border-radius:50%;border:1px solid var(--glass-edge);background:var(--glass-strong);color:var(--fg);display:grid;place-items:center;cursor:pointer;font:inherit}
+.iconbtn:active{transform:scale(.94)}
+.wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.wk .dn{text-align:center;font-size:11px;font-weight:600;color:var(--faint);padding-bottom:4px;text-transform:uppercase}
+.day{aspect-ratio:1/1.08;border-radius:12px;background:var(--flat-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  border:1px solid transparent;cursor:pointer;color:var(--fg);font:inherit;padding:2px;min-width:0;transition:transform .12s}
+.day:active{transform:scale(.93)}
+.day .d{font-size:12.5px;font-weight:600;line-height:1}
+.day .v{font-size:9.5px;letter-spacing:-.02em;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.day .dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.85}
+.day.g{background:var(--gain-bg);color:var(--gain)} .day.g.s{background:var(--gain-strong)}
+.day.r{background:var(--loss-bg);color:var(--loss)} .day.r.s{background:var(--loss-strong)}
+.day.today{border-color:var(--accent)}
+.day.out{visibility:hidden}
+.day.we{opacity:.6}
+.weeks{display:flex;flex-direction:column;gap:2px;margin-top:12px;padding-top:10px;border-top:1px solid var(--hair)}
+.wrow{display:flex;flex-wrap:wrap;gap:2px 10px;justify-content:space-between;font-size:13px;padding:5px 6px;color:var(--muted)}
+.wrow b{font-weight:700}.wrow>span{white-space:nowrap}
+
+/* Lists */
+.card{padding:6px 0}
+.card .hd{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 6px;gap:10px}
+.item{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid var(--hair);cursor:pointer;background:none;border-left:0;border-right:0;border-bottom:0;width:100%;text-align:left;color:inherit;font:inherit}
+.item:first-of-type{border-top:0}
+.badge{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:11px;font-weight:800;flex:none;letter-spacing:.02em}
+.badge.g{background:var(--gain-bg);color:var(--gain)} .badge.r{background:var(--loss-bg);color:var(--loss)} .badge.f{background:var(--flat-bg);color:var(--muted)}
+.item .mid{flex:1;min-width:0}
+.item .t{font-weight:650;font-weight:600;display:flex;gap:6px;align-items:center}
+.item .s{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .amt{font-weight:700;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.tag{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--flat-bg);color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.dategrp{font-size:12px;font-weight:700;color:var(--muted);padding:14px 16px 4px;text-transform:capitalize;display:flex;justify-content:space-between}
+
+.search{display:flex;gap:8px;align-items:center;padding:10px 14px;border-radius:99px}
+.search input{flex:1;border:0;background:transparent;color:var(--fg);font:inherit;font-size:16px;outline:none;min-width:0}
+
+/* Stats */
+.seg{display:flex;padding:4px;border-radius:99px;gap:2px}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:600;padding:8px 6px;border-radius:99px;cursor:pointer}
+.seg button.on{background:var(--glass-strong);color:var(--fg);box-shadow:0 2px 10px var(--glass-shadow)}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.kpi{padding:14px 15px;border-radius:var(--r-md)}
+.kpi .l{font-size:12px;color:var(--muted);font-weight:600}
+.kpi .v{font-family:var(--display);font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .h{font-size:11.5px;color:var(--faint);margin-top:2px}
+.chart{padding:14px 12px 10px}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.bars{display:flex;flex-direction:column;gap:9px;padding:6px 16px 16px}
+.bar{display:grid;grid-template-columns:44px 1fr 86px;align-items:center;gap:10px;font-size:13px}
+.bar .tr{height:10px;border-radius:99px;background:var(--flat-bg);position:relative;overflow:hidden}
+.bar .fl{position:absolute;top:0;bottom:0;border-radius:99px}
+.bar .val{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.ratio{height:10px;border-radius:99px;overflow:hidden;display:flex;background:var(--flat-bg);margin:4px 16px 14px}
+.ratio i{display:block;height:100%}
+
+/* Settings */
+.set{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-top:1px solid var(--hair)}
+.set:first-of-type{border-top:0}
+.set .k{font-weight:600}.set .k small{display:block;font-weight:400;color:var(--muted);font-size:12.5px}
+.set select,.set input{font:inherit;font-size:16px;color:var(--fg);background:var(--glass-strong);border:1px solid var(--glass-edge);border-radius:12px;padding:8px 10px;max-width:150px}
+.btn{font:inherit;font-weight:650;font-weight:600;font-size:15px;border:1px solid var(--glass-edge);background:var(--glass-strong);color:var(--fg);padding:12px 16px;border-radius:16px;cursor:pointer;width:100%}
+.btn.pri{background:var(--accent);color:var(--accent-fg);border-color:transparent;box-shadow:0 8px 22px rgba(15,138,76,.35)}
+.btn.dng{color:var(--loss)}
+.btn:active{transform:scale(.98)}
+.btns{display:flex;flex-direction:column;gap:8px;padding:6px 16px 16px}
+.howto{padding:4px 16px 16px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:8px}
+.howto ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.howto b{color:var(--fg)}
+
+.empty{padding:28px 20px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
+.empty p{margin:0;color:var(--muted);max-width:34ch}
+.empty .ttl{font-family:var(--display);font-weight:700;font-size:18px;color:var(--fg)}
+
+/* Tab bar */
+.dock{position:fixed;z-index:20;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;align-items:center;max-width:620px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));pointer-events:none}
+.tabbar{flex:1;min-width:0;display:flex;gap:2px;padding:6px;border-radius:99px;pointer-events:auto}
+.tabbar button{flex:1;border:0;background:transparent;color:var(--muted);font:inherit;font-size:10.5px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:99px;cursor:pointer;min-width:0}
+.tabbar button.on{color:var(--accent);background:var(--glass-strong)}
+.tabbar svg{width:22px;height:22px}
+.fab{flex:none;pointer-events:auto;width:60px;height:60px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;cursor:pointer;
+  box-shadow:0 10px 28px rgba(15,138,76,.45),inset 0 1px 0 rgba(255,255,255,.45)}
+.fab:active{transform:scale(.93)}
+
+/* Sheet */
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .25s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;z-index:41;left:0;right:0;bottom:0;margin:0 auto;max-width:620px;max-height:92%;overflow:auto;
+  border-radius:30px 30px 0 0;padding:8px max(18px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));
+  transform:translateY(105%);transition:transform .34s cubic-bezier(.2,.9,.25,1);background:var(--glass-strong)}
+.sheet.on{transform:none}
+.grab{width:40px;height:5px;border-radius:9px;background:var(--faint);opacity:.5;margin:2px auto 10px}
+.sheet h3{font-family:var(--display);font-size:20px;font-weight:800;margin:0 0 14px;letter-spacing:-.01em;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.form{display:flex;flex-direction:column;gap:12px}
+.f{display:flex;flex-direction:column;gap:5px}
+.f label{font-size:12.5px;font-weight:600;color:var(--muted)}
+.f input,.f textarea,.f select{font:inherit;font-size:16px;color:var(--fg);background:var(--glass);border:1px solid var(--glass-edge);border-radius:14px;padding:11px 13px;width:100%;min-width:0}
+.f textarea{min-height:70px;resize:vertical}
+.f input:focus,.f textarea:focus,.set input:focus,.set select:focus{outline:2px solid var(--accent);outline-offset:1px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.amount::-webkit-inner-spin-button,.amount::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.amount{-moz-appearance:textfield;font-family:var(--display)!important;font-size:28px!important;font-weight:800;text-align:center;letter-spacing:-.02em}
+.seg.sm{background:var(--glass);border:1px solid var(--glass-edge)}
+.seg.sm button.on.g{color:var(--gain)} .seg.sm button.on.r{color:var(--loss)}
+.confirm{display:flex;gap:8px}
+.confirm .btn{flex:1}
+
+.toast{position:fixed;z-index:60;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translate(-50%,-150%);transition:transform .3s;padding:10px 16px;border-radius:99px;font-weight:600;font-size:13.5px;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis}
+.toast.on{transform:translate(-50%,0)}
+.note{font-size:12.5px;color:var(--muted);padding:0 4px}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (min-width:560px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.day .v{font-size:11px}}
+
+/* PWA additions */
+html,body{margin:0}
+body{-webkit-font-smoothing:antialiased;overscroll-behavior-y:none;padding-top:env(safe-area-inset-top,0px)}
+input,select,textarea,button{font-family:var(--font)}
+.top .actions{display:flex;gap:8px;align-items:center}
+.hello{font-size:13px;color:var(--muted);font-weight:500;padding:0 4px;margin-top:-6px}
+.hello b{color:var(--fg)}
+.banner{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:var(--r-md)}
+.banner .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;background:rgba(245,165,36,.18);color:#d48806}
+.banner.ok .ic{background:var(--gain-bg);color:var(--gain)}
+.banner .tx{flex:1;min-width:0;font-size:13px;color:var(--muted)}
+.banner .tx b{display:block;color:var(--fg);font-size:14px}
+.banner button{flex:none;width:auto;padding:9px 14px;font-size:13.5px;border-radius:12px}
+.guide{display:flex;flex-direction:column;gap:10px}
+.guide details{border-radius:var(--r-md);overflow:hidden}
+.guide summary{list-style:none;cursor:pointer;padding:14px 16px;font-weight:700;display:flex;align-items:center;gap:12px}
+.guide summary::-webkit-details-marker{display:none}
+.guide summary .n{width:28px;height:28px;border-radius:9px;background:var(--gain-bg);color:var(--gain);display:grid;place-items:center;font-size:13px;flex:none}
+.guide summary .ch{margin-left:auto;transition:transform .2s;color:var(--faint)}
+.guide details[open] summary .ch{transform:rotate(90deg)}
+.guide .gb{padding:0 16px 16px 56px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:8px}
+.guide .gb ol,.guide .gb ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
+.guide .gb b{color:var(--fg)}
+.guide .tip{background:var(--gain-bg);color:var(--fg);border-radius:12px;padding:10px 12px;font-size:13px}
+.guide .warn{background:var(--loss-bg);color:var(--fg);border-radius:12px;padding:10px 12px;font-size:13px}
+.kbd{display:inline-block;padding:1px 7px;border-radius:7px;background:var(--glass-strong);border:1px solid var(--glass-edge);color:var(--fg);font-weight:700;font-size:12.5px}
+.welcome{display:flex;flex-direction:column;gap:12px;text-align:center;align-items:center;padding:6px 4px 4px}
+.welcome .logo{width:72px;height:72px;border-radius:20px}
+.welcome h3{justify-content:center;margin:0}
+.welcome p{margin:0;color:var(--muted);max-width:36ch}
+.steps3{display:flex;flex-direction:column;gap:8px;width:100%;text-align:left}
+.steps3 div{display:flex;gap:12px;align-items:center;padding:11px 13px;border-radius:14px;background:var(--glass);border:1px solid var(--glass-edge);font-size:14px}
+.steps3 i{font-style:normal;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--accent);color:var(--accent-fg);font-weight:800;font-size:13px;flex:none}
+.ver{font-size:11.5px;color:var(--faint);text-align:center;padding:4px}
+</style>
+</head>
+<body>
+<div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="4" fill="#fff"/><rect x="7" y="2.5" width="2.4" height="5" rx="1.2" fill="#fff"/><rect x="14.6" y="2.5" width="2.4" height="5" rx="1.2" fill="#fff"/><circle cx="8" cy="12" r="1.5" fill="#0f8a4c"/><circle cx="12" cy="12" r="1.5" fill="#e5383b"/><circle cx="16" cy="12" r="1.5" fill="#0f8a4c"/><circle cx="8" cy="16.5" r="1.5" fill="#e5383b"/><circle cx="12" cy="16.5" r="1.5" fill="#0f8a4c"/><circle cx="16" cy="16.5" r="1.5" fill="#0f8a4c"/></svg></div>
+      <div><h1>PnL Ledger</h1><small id="subtitle">Journal de trading</small></div>
+    </div>
+    <div class="actions">
+      <button class="iconbtn" data-act="guide" aria-label="Mode d’emploi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.8"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></button>
+    </div>
+  </header>
+  <div class="hello" id="hello"></div>
+  <main id="view"></main>
+</div>
+
+<div class="dock">
+<nav class="tabbar glass" id="tabbar">
+  <button data-v="cal" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="4"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>Calendrier</button>
+  <button data-v="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2" fill="currentColor"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor"/></svg>Journal</button>
+  <button data-v="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 17l5-5.5 4 3.5 8-9"/><path d="M15 6h5.5v5.5"/></svg>Stats</button>
+  <button data-v="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.3"/><circle cx="8" cy="17" r="2.3"/></svg>Réglages</button>
+</nav>
+<button class="fab" id="fab" aria-label="Ajouter un trade"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<section class="sheet glass" id="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div id="sheetBody"></div></section>
+<div class="toast glass" id="toast"></div>
+<input type="file" id="fileIn" accept=".json,.csv,application/json,text/csv,text/plain,*/*" hidden>
+
+<script>
+(() => {
+const VERSION = '1.0';
+const $ = s => document.querySelector(s);
+const LS_KEY = 'pnl-ledger-data', LS_PREF = 'pnl-ledger-prefs';
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
+
+const saved = lsGet(LS_KEY, {});
+const S = {
+  trades: saved.trades || [],
+  settings: { currency: 'FCFA', capital: 0, firstName: 'Yapobi', lastName: 'Adejare', ...(saved.settings || {}) },
+  meta: { lastBackup: null, welcomed: false, ...(saved.meta || {}) },
+  prefs: { theme: 'auto', view: 'cal', ...lsGet(LS_PREF, {}) },
+  month: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  period: 'all', query: '', installEvt: null, persisted: false
+};
+
+/* ---------- utils ---------- */
+const pad = n => String(n).padStart(2, '0');
+const key = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const todayKey = () => key(new Date());
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const net = t => (Number(t.pnl) || 0) - (Number(t.fees) || 0);
+const nf2 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const nf0 = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+const cur = () => S.settings.currency || '€';
+const noDec = () => ['FCFA', 'XAF', 'XOF'].includes(cur());
+const money = (v, sign = true) => {
+  const s = (sign && v > 0 ? '+' : v < 0 ? '−' : '') + (noDec() ? nf0 : nf2).format(Math.abs(v));
+  const c = cur(); return ['$', '£'].includes(c) ? s.replace(/^([+−]?)/, `$1${c}`) : `${s} ${c}`;
+};
+const compact = v => {
+  const a = Math.abs(v), s = v > 0 ? '+' : v < 0 ? '−' : '';
+  if (a >= 1e6) return s + (a / 1e6).toFixed(1).replace('.', ',') + 'M';
+  if (a >= 1e4) return s + nf0.format(a / 1e3) + 'k';
+  if (a >= 1e3) return s + (a / 1e3).toFixed(1).replace('.', ',') + 'k';
+  return s + nf0.format(a);
+};
+const cls = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const MONTHS = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' });
+const DAYLONG = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+const DAYSHORT = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
+const daysSince = iso => iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 864e5) : Infinity;
+
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2400); }
+function applyTheme() { const th = S.prefs.theme; if (th === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', th); }
+
+function persist() {
+  if (!lsSet(LS_KEY, { v: 1, trades: S.trades, settings: S.settings, meta: S.meta })) toast('Mémoire du téléphone pleine : faites une sauvegarde');
+}
+function saveTrade(t) { const i = S.trades.findIndex(x => x.id === t.id); if (i >= 0) S.trades[i] = t; else S.trades.push(t); persist(); render(); }
+function removeTrade(id) { S.trades = S.trades.filter(x => x.id !== id); persist(); render(); }
+
+/* ---------- greeting ---------- */
+function greeting() {
+  const f = (S.settings.firstName || '').trim(), l = (S.settings.lastName || '').trim();
+  const h = new Date().getHours(), hi = h < 5 ? 'Bonne nuit' : h < 18 ? 'Bonjour' : 'Bonsoir';
+  const opts = [];
+  if (f) opts.push(`${hi} <b>${esc(f)}</b>`, `${hi} <b>${esc(f)}</b>, bon trading`);
+  if (l) opts.push(`${hi} <b>M. ${esc(l)}</b>`, `Content de vous revoir, <b>M. ${esc(l)}</b>`);
+  return opts.length ? opts[Math.floor(Math.random() * opts.length)] : '';
+}
+
+/* ---------- aggregates ---------- */
+function byDay(trades) {
+  const m = new Map();
+  for (const t of trades) { const e = m.get(t.date) || { net: 0, n: 0 }; e.net += net(t); e.n++; m.set(t.date, e); }
+  return m;
+}
+function periodTrades() {
+  if (S.period === 'all') return S.trades;
+  const now = new Date(); let from;
+  if (S.period === 'm') from = new Date(now.getFullYear(), now.getMonth(), 1);
+  else if (S.period === '3m') from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  else from = new Date(now.getFullYear(), 0, 1);
+  const fk = key(from); return S.trades.filter(t => t.date >= fk);
+}
+function stats(trades) {
+  const nets = trades.map(net), wins = nets.filter(v => v > 0), losses = nets.filter(v => v < 0);
+  const gw = wins.reduce((a, b) => a + b, 0), gl = -losses.reduce((a, b) => a + b, 0);
+  const total = gw - gl, fees = trades.reduce((a, t) => a + (Number(t.fees) || 0), 0);
+  const days = [...byDay(trades).entries()].sort((a, b) => a[0] < b[0] ? -1 : 1);
+  let eq = 0, peak = 0, dd = 0; const curve = [];
+  for (const [k, e] of days) { eq += e.net; peak = Math.max(peak, eq); dd = Math.max(dd, peak - eq); curve.push([k, eq]); }
+  let best = null, worst = null; for (const [k, e] of days) { if (!best || e.net > best[1]) best = [k, e.net]; if (!worst || e.net < worst[1]) worst = [k, e.net]; }
+  const sorted = [...trades].sort((a, b) => (a.date + (a.createdAt || '')) < (b.date + (b.createdAt || '')) ? -1 : 1);
+  let sw = 0, sl = 0, cw = 0, cl = 0;
+  for (const t of sorted) { const v = net(t); if (v > 0) { cw++; cl = 0; } else if (v < 0) { cl++; cw = 0; } else { cw = 0; cl = 0; } sw = Math.max(sw, cw); sl = Math.max(sl, cl); }
+  return {
+    n: trades.length, total, fees, wins: wins.length, losses: losses.length,
+    winRate: trades.length ? wins.length / trades.length : 0,
+    pf: gl ? gw / gl : (gw ? Infinity : 0),
+    avgW: wins.length ? gw / wins.length : 0, avgL: losses.length ? -gl / losses.length : 0,
+    exp: trades.length ? total / trades.length : 0, dd, curve, best, worst, sw, sl,
+    greenDays: days.filter(d => d[1].net > 0).length, redDays: days.filter(d => d[1].net < 0).length, days: days.length
+  };
+}
+
+/* ---------- views ---------- */
+function render() {
+  const v = S.prefs.view;
+  document.querySelectorAll('#tabbar button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  $('#view').innerHTML = v === 'cal' ? viewCal() : v === 'list' ? viewList() : v === 'stats' ? viewStats() : viewSet();
+  $('#subtitle').textContent = { cal: 'Calendrier P&L', list: 'Journal des trades', stats: 'Statistiques', set: 'Réglages' }[v];
+}
+
+function backupBanner() {
+  if (!S.trades.filter(t => !t.demo).length) return '';
+  const d = daysSince(S.meta.lastBackup);
+  if (d < 7) return '';
+  return `<div class="glass banner"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg></div>
+    <div class="tx"><b>${d === Infinity ? 'Faites votre première sauvegarde' : 'Dernière sauvegarde il y a ' + d + ' jours'}</b>Gardez une copie de vos trades en cas de problème avec le téléphone.</div>
+    <button class="btn pri" data-act="backup">Sauvegarder</button></div>`;
+}
+
+function emptyBlock() {
+  return `<div class="glass empty">
+    <div class="ttl">Aucun trade pour l’instant</div>
+    <p>Touchez le bouton vert <b>+</b> en bas à droite pour enregistrer votre premier trade. Le jour passera au vert ou au rouge selon le résultat.</p>
+    <div class="btns" style="width:100%;max-width:300px;padding:6px 0 0">
+      <button class="btn pri" data-act="add">Ajouter un trade</button>
+      <button class="btn" data-act="demo">Voir avec des exemples</button>
+      <button class="btn" data-act="guide">Lire le mode d’emploi</button>
+    </div></div>`;
+}
+
+function viewCal() {
+  const m = S.month, y = m.getFullYear(), mo = m.getMonth(), mk = `${y}-${pad(mo + 1)}`;
+  const monthTrades = S.trades.filter(t => t.date.startsWith(mk));
+  const days = byDay(monthTrades), st = stats(monthTrades);
+  const maxAbs = Math.max(1, ...[...days.values()].map(e => Math.abs(e.net)));
+  const first = (new Date(y, mo, 1).getDay() + 6) % 7, nDays = new Date(y, mo + 1, 0).getDate();
+  let cells = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => `<div class="dn">${d}</div>`).join('');
+  for (let i = 0; i < first; i++) cells += `<div class="day out"></div>`;
+  const tk = todayKey(), weeks = [];
+  for (let d = 1; d <= nDays; d++) {
+    const k = `${mk}-${pad(d)}`, e = days.get(k), dow = (first + d - 1) % 7, wi = Math.floor((first + d - 1) / 7);
+    weeks[wi] = weeks[wi] || { net: 0, n: 0, from: d, to: d }; weeks[wi].to = d;
+    if (e) { weeks[wi].net += e.net; weeks[wi].n += e.n; }
+    const c = e ? (e.net > 0 ? 'g' : e.net < 0 ? 'r' : '') + (Math.abs(e.net) > maxAbs * .5 ? ' s' : '') : '';
+    cells += `<button class="day ${c} ${k === tk ? 'today' : ''} ${!e && dow > 4 ? 'we' : ''}" data-day="${k}" aria-label="${DAYLONG.format(parseKey(k))}${e ? ', ' + money(e.net) : ''}"><span class="d">${d}</span>${e ? `<span class="v">${compact(e.net).replace('+', '')}</span>` : ''}</button>`;
+  }
+  const wrows = weeks.filter(Boolean).map((w, i) => `<div class="wrow"><span>Sem. ${i + 1} · ${w.from === w.to ? w.from : w.from + '–' + w.to}</span><span>${w.n ? `${w.n} trade${w.n > 1 ? 's' : ''} · <b class="${cls(w.net)} num">${money(w.net)}</b>` : '—'}</span></div>`).join('');
+  const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    ${backupBanner()}
+    <section class="glass hero"><h2>Résultat du mois</h2>
+      <div class="big num ${cls(st.total)}">${money(st.total)}</div>
+      <div class="row"><span class="chip g">${pl(st.greenDays, 'jour')} vert${st.greenDays > 1 ? 's' : ''}</span><span class="chip r">${pl(st.redDays, 'jour')} rouge${st.redDays > 1 ? 's' : ''}</span><span class="chip">${pl(st.n, 'trade')}</span><span class="chip">Réussite ${Math.round(st.winRate * 100)} %</span></div>
+    </section>
+    <section class="glass cal">
+      <div class="cal-head">
+        <button class="iconbtn" data-act="prev" aria-label="Mois précédent"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <button class="m" data-act="thismonth" style="background:none;border:0;color:inherit;font:inherit;cursor:pointer">${MONTHS.format(m)}</button>
+        <button class="iconbtn" data-act="next" aria-label="Mois suivant"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+      <div class="wk">${cells}</div>
+      <div class="weeks">${wrows}</div>
+    </section>
+    ${S.trades.length ? '' : emptyBlock()}
+  </div>`;
+}
+
+function tradeRow(t) {
+  const v = net(t), c = v > 0 ? 'g' : v < 0 ? 'r' : 'f';
+  return `<button class="item" data-edit="${esc(t.id)}">
+    <div class="badge ${c}">${t.side === 'short' ? 'SHORT' : 'LONG'}</div>
+    <div class="mid"><div class="t">${esc((t.symbol || '—').slice(0, 8).toUpperCase())}${t.setup ? `<span class="tag">${esc(t.setup)}</span>` : ''}${t.demo ? '<span class="tag">exemple</span>' : ''}</div>
+      <div class="s">${t.note ? esc(t.note) : (Number(t.fees) ? 'Frais ' + money(Number(t.fees), false) : 'Sans note')}</div></div>
+    <div class="amt ${cls(v)}">${money(v)}</div></button>`;
+}
+
+function viewList() {
+  if (!S.trades.length) return emptyBlock();
+  const q = S.query.trim().toLowerCase();
+  const list = S.trades.filter(t => !q || [t.symbol, t.setup, t.note, t.side].some(x => String(x || '').toLowerCase().includes(q)))
+    .sort((a, b) => (b.date + (b.createdAt || '')) > (a.date + (a.createdAt || '')) ? 1 : -1);
+  const groups = new Map(); for (const t of list) { if (!groups.has(t.date)) groups.set(t.date, []); groups.get(t.date).push(t); }
+  let html = '';
+  for (const [d, ts] of groups) { const tot = ts.reduce((a, t) => a + net(t), 0); html += `<div class="dategrp"><span>${DAYLONG.format(parseKey(d))}</span><span class="${cls(tot)} num">${money(tot)}</span></div>${ts.map(tradeRow).join('')}`; }
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <label class="glass search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--muted)"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Rechercher un actif, un setup, une note" value="${esc(S.query)}" autocomplete="off"></label>
+    <section class="glass card">${html || '<div class="empty"><p>Aucun trade ne correspond à cette recherche.</p></div>'}</section>
+    <p class="note">${list.length} trade${list.length > 1 ? 's' : ''}. Touchez un trade pour le modifier ou le supprimer.</p></div>`;
+}
+
+function equityChart(curve, capital) {
+  const W = 340, H = 170, L = 6, R = 6, T = 14, B = 22;
+  if (curve.length < 2) return `<p class="note" style="padding:20px 6px">Ajoutez des trades sur au moins deux jours pour voir la courbe.</p>`;
+  const vals = curve.map(c => c[1] + capital), mn = Math.min(capital, ...vals), mx = Math.max(capital, ...vals), span = mx - mn || 1;
+  const x = i => L + i * (W - L - R) / (curve.length - 1), y = v => T + (1 - (v - mn) / span) * (H - T - B);
+  const pts = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+  const last = vals[vals.length - 1], up = last >= capital, col = up ? 'var(--gain)' : 'var(--loss)';
+  const grid = [0, .5, 1].map(f => { const yy = y(mn + span * f); return `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="var(--hair)" stroke-width="1"/>`; }).join('');
+  const z = y(capital);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Courbe des gains cumulés">
+    <defs><linearGradient id="eqg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".35"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+    ${grid}<line x1="${L}" x2="${W - R}" y1="${z}" y2="${z}" stroke="var(--faint)" stroke-dasharray="3 4" stroke-width="1"/>
+    <path d="M${pts[0]} L${pts.join(' L')} L${x(vals.length - 1)},${H - B} L${L},${H - B}Z" fill="url(#eqg)"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${x(vals.length - 1)}" cy="${y(last)}" r="4.5" fill="${col}" stroke="var(--bg)" stroke-width="2"/>
+    <text x="${L}" y="${H - 6}" font-size="10.5" fill="var(--muted)">${DAYSHORT.format(parseKey(curve[0][0]))}</text>
+    <text x="${W - R}" y="${H - 6}" font-size="10.5" fill="var(--muted)" text-anchor="end">${DAYSHORT.format(parseKey(curve[curve.length - 1][0]))}</text>
+    <text x="${W - R}" y="${T - 4}" font-size="10.5" fill="var(--muted)" text-anchor="end">${compact(mx)}</text></svg>`;
+}
+
+function viewStats() {
+  if (!S.trades.length) return emptyBlock();
+  const tr = periodTrades(), s = stats(tr), cap = Number(S.settings.capital) || 0;
+  const pf = s.pf === Infinity ? '∞' : s.pf.toFixed(2).replace('.', ',');
+  const kp = (l, v, h, c = '') => `<div class="glass kpi"><div class="l">${l}</div><div class="v ${c}">${v}</div>${h ? `<div class="h">${h}</div>` : ''}</div>`;
+  const wd = [0, 0, 0, 0, 0, 0, 0]; for (const t of tr) wd[(parseKey(t.date).getDay() + 6) % 7] += net(t);
+  const wdMax = Math.max(1, ...wd.map(Math.abs));
+  const bar = (label, v, max, bold) => `<div class="bar"><span ${bold ? 'style="font-weight:700;overflow:hidden;text-overflow:ellipsis"' : ''}>${label}</span><div class="tr"><div class="fl" style="left:0;width:${Math.abs(v) / max * 100}%;background:${v >= 0 ? 'var(--gain)' : 'var(--loss)'}"></div></div><span class="val ${cls(v)}">${compact(v)}</span></div>`;
+  const wdBars = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((n, i) => ({ n, v: wd[i] })).filter((d, i) => i < 5 || d.v).map(d => bar(d.n, d.v, wdMax)).join('');
+  const sy = new Map(); for (const t of tr) { const k = (t.symbol || '—').toUpperCase(); sy.set(k, (sy.get(k) || 0) + net(t)); }
+  const syl = [...sy.entries()].sort((a, b) => b[1] - a[1]), syMax = Math.max(1, ...syl.map(e => Math.abs(e[1])));
+  const syBars = syl.slice(0, 8).map(([k, v]) => bar(esc(k), v, syMax, true)).join('');
+  const wp = s.n ? s.wins / s.n * 100 : 0, lp = s.n ? s.losses / s.n * 100 : 0;
+  const ret = cap ? ` · ${(s.total / cap * 100).toFixed(1).replace('.', ',')} % du capital` : '';
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <div class="glass seg">${[['m', 'Mois'], ['3m', '3 mois'], ['y', 'Année'], ['all', 'Tout']].map(([k, l]) => `<button data-period="${k}" class="${S.period === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <section class="glass hero"><h2>P&amp;L net</h2><div class="big num ${cls(s.total)}">${money(s.total)}</div>
+      <div class="note" style="padding:0">${s.n} trades sur ${s.days} jours${ret} · frais ${money(s.fees, false)}</div></section>
+    <section class="glass chart"><h2 style="padding:0 4px 8px">Courbe de capital${cap ? '' : ' (gains cumulés)'}</h2>${equityChart(s.curve, cap)}</section>
+    <div class="kpis">
+      ${kp('Taux de réussite', Math.round(s.winRate * 100) + ' %', `${s.wins} gagnants · ${s.losses} perdants`)}
+      ${kp('Profit factor', pf, 'gains bruts ÷ pertes brutes', s.pf >= 1 ? 'pos' : 'neg')}
+      ${kp('Espérance', money(s.exp), 'gain moyen par trade', cls(s.exp))}
+      ${kp('Gain moyen', money(s.avgW), s.avgL ? 'ratio ' + (s.avgW / -s.avgL).toFixed(2).replace('.', ',') + ' : 1' : '', 'pos')}
+      ${kp('Perte moyenne', money(s.avgL), '', 'neg')}
+      ${kp('Drawdown max', money(-s.dd), 'plus forte baisse depuis un sommet', s.dd ? 'neg' : '')}
+      ${kp('Meilleur jour', s.best ? money(s.best[1]) : '—', s.best ? DAYSHORT.format(parseKey(s.best[0])) : '', 'pos')}
+      ${kp('Pire jour', s.worst ? money(s.worst[1]) : '—', s.worst ? DAYSHORT.format(parseKey(s.worst[0])) : '', 'neg')}
+      ${kp('Séries', `${s.sw} / ${s.sl}`, 'gains / pertes d’affilée')}
+    </div>
+    <section class="glass card"><div class="hd"><h2>Gagnants et perdants</h2><span class="note num">${Math.round(wp)} % / ${Math.round(lp)} %</span></div>
+      <div class="ratio"><i style="width:${wp}%;background:var(--gain)"></i><i style="width:${lp}%;background:var(--loss)"></i></div></section>
+    <section class="glass card"><div class="hd"><h2>Par jour de la semaine</h2></div><div class="bars">${wdBars}</div></section>
+    <section class="glass card"><div class="hd"><h2>Par actif</h2></div><div class="bars">${syBars}</div></section>
+  </div>`;
+}
+
+function viewSet() {
+  const demoN = S.trades.filter(t => t.demo).length, d = daysSince(S.meta.lastBackup);
+  const installed = matchMedia('(display-mode: standalone)').matches;
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <section class="glass card"><div class="hd"><h2>Sauvegardes</h2></div>
+      <div class="glass banner ${d < 7 ? 'ok' : ''}" style="margin:4px 16px 10px;box-shadow:none"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg></div>
+        <div class="tx"><b>${d === Infinity ? 'Aucune sauvegarde pour l’instant' : d === 0 ? 'Sauvegardé aujourd’hui' : 'Dernière sauvegarde il y a ' + d + ' jour' + (d > 1 ? 's' : '')}</b>${S.trades.length} trades enregistrés sur ce téléphone${S.persisted ? ', stockage protégé' : ''}.</div></div>
+      <div class="btns">
+        <button class="btn pri" data-act="backup">Sauvegarder maintenant</button>
+        <button class="btn" data-act="restore">Restaurer une sauvegarde</button>
+      </div></section>
+    <section class="glass card"><div class="hd"><h2>Profil</h2></div>
+      <div class="set"><div class="k">Prénom</div><input id="sFirst" value="${esc(S.settings.firstName)}" autocomplete="off"></div>
+      <div class="set"><div class="k">Nom<small>Pour « M. ${esc(S.settings.lastName || '…')} »</small></div><input id="sLast" value="${esc(S.settings.lastName)}" autocomplete="off"></div>
+      <div class="set"><div class="k">Devise</div><select id="sCur">${['FCFA', '€', '$', '£', 'CHF', 'MAD', 'NGN', 'GHS', 'pts', 'pips'].map(c => `<option ${c === cur() ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+      <div class="set"><div class="k">Capital de départ<small>Pour la courbe et le rendement en %</small></div><input id="sCap" type="number" inputmode="decimal" min="0" step="any" value="${Number(S.settings.capital) || ''}" placeholder="0"></div>
+      <div class="set"><div class="k">Apparence</div><select id="sTheme">${[['auto', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']].map(([v, l]) => `<option value="${v}" ${S.prefs.theme === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+    </section>
+    <section class="glass card"><div class="hd"><h2>Données</h2></div><div class="btns">
+      <button class="btn" data-act="export">Exporter en tableur (CSV)</button>
+      <button class="btn" data-act="restore">Importer un fichier CSV</button>
+      ${demoN ? `<button class="btn" data-act="undemo">Retirer les ${demoN} exemples</button>` : `<button class="btn" data-act="demo">Charger des exemples</button>`}
+      <button class="btn dng" data-act="wipe">Tout effacer</button>
+    </div></section>
+    <section class="glass card"><div class="hd"><h2>Aide</h2></div><div class="btns">
+      <button class="btn" data-act="guide">Mode d’emploi complet</button>
+      ${installed ? '' : S.installEvt ? `<button class="btn pri" data-act="install">Installer l’appli sur le téléphone</button>` : `<button class="btn" data-act="guide-install">Comment installer l’appli</button>`}
+    </div></section>
+    <p class="ver">PnL Ledger ${VERSION} · fonctionne sans internet · vos données restent sur ce téléphone</p>
+  </div>`;
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html) { $('#sheetBody').innerHTML = html; $('#sheet').scrollTop = 0; $('#scrim').classList.add('on'); $('#sheet').classList.add('on'); }
+function closeSheet() { $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on'); }
+const closeBtn = `<button class="iconbtn" data-act="close" aria-label="Fermer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+
+function daySheet(k) {
+  const ts = S.trades.filter(t => t.date === k), tot = ts.reduce((a, t) => a + net(t), 0);
+  openSheet(`<h3><span style="text-transform:capitalize">${DAYLONG.format(parseKey(k))}</span><span class="${cls(tot)} num" style="font-size:17px">${ts.length ? money(tot) : ''}</span></h3>
+    ${ts.length ? `<div class="glass card" style="margin-bottom:12px">${ts.map(tradeRow).join('')}</div>` : '<p class="note" style="margin:0 0 14px">Aucun trade ce jour-là.</p>'}
+    <button class="btn pri" data-add-on="${k}">Ajouter un trade ce jour</button>`);
+}
+
+function tradeSheet(t, date) {
+  const isNew = !t; t = t || { id: uid(), date: date || todayKey(), symbol: '', side: 'long', pnl: '', fees: '', setup: '', note: '' };
+  const v = Number(t.pnl) || 0, sign = isNew ? 1 : (v < 0 ? -1 : 1);
+  const setups = [...new Set(S.trades.map(x => x.setup).filter(Boolean))], syms = [...new Set(S.trades.map(x => (x.symbol || '').toUpperCase()).filter(Boolean))];
+  openSheet(`<h3>${isNew ? 'Nouveau trade' : 'Modifier le trade'}${closeBtn}</h3>
+  <form class="form" id="tf" data-id="${esc(t.id)}" data-new="${isNew ? 1 : 0}" data-sign="${sign}" data-side="${t.side === 'short' ? 'short' : 'long'}" data-created="${esc(t.createdAt || '')}">
+    <div class="seg sm"><button type="button" data-sign="1" class="${sign > 0 ? 'on g' : ''}">Gain</button><button type="button" data-sign="-1" class="${sign < 0 ? 'on r' : ''}">Perte</button></div>
+    <div class="f"><label for="fPnl">Montant gagné ou perdu (${esc(cur())})</label><input id="fPnl" class="amount ${sign > 0 ? 'pos' : 'neg'}" type="number" inputmode="decimal" step="any" min="0" placeholder="0" value="${t.pnl === '' ? '' : Math.abs(v)}" required></div>
+    <div class="two">
+      <div class="f"><label for="fDate">Date</label><input id="fDate" type="date" value="${esc(t.date)}" required></div>
+      <div class="f"><label for="fFees">Frais (facultatif)</label><input id="fFees" type="number" inputmode="decimal" step="any" min="0" placeholder="0" value="${esc(t.fees)}"></div>
+    </div>
+    <div class="two">
+      <div class="f"><label for="fSym">Actif</label><input id="fSym" list="symL" placeholder="EURUSD" value="${esc(t.symbol)}" autocapitalize="characters" autocomplete="off"><datalist id="symL">${syms.map(s => `<option value="${esc(s)}">`).join('')}</datalist></div>
+      <div class="f"><label>Sens</label><div class="seg sm"><button type="button" data-side="long" class="${t.side !== 'short' ? 'on' : ''}">Achat</button><button type="button" data-side="short" class="${t.side === 'short' ? 'on' : ''}">Vente</button></div></div>
+    </div>
+    <div class="f"><label for="fSetup">Setup / stratégie (facultatif)</label><input id="fSetup" list="setL" placeholder="Breakout, Range…" value="${esc(t.setup)}" autocomplete="off"><datalist id="setL">${setups.map(s => `<option value="${esc(s)}">`).join('')}</datalist></div>
+    <div class="f"><label for="fNote">Note (facultatif)</label><textarea id="fNote" placeholder="Pourquoi ce trade, émotions, erreurs…">${esc(t.note)}</textarea></div>
+    <button class="btn pri" type="submit">${isNew ? 'Enregistrer' : 'Enregistrer les modifications'}</button>
+    ${isNew ? '' : `<div id="delZone"><button class="btn dng" type="button" data-act="askdel">Supprimer ce trade</button></div>`}
+  </form>`);
+}
+
+function confirmSheet(title, text, label, act, danger = true) {
+  openSheet(`<h3>${title}</h3><p class="note" style="margin:0 0 16px;font-size:14px;padding:0">${text}</p>
+    <div class="confirm"><button class="btn" data-act="close">Annuler</button><button class="btn ${danger ? '' : 'pri'}" data-act="${act}" ${danger ? 'style="background:var(--loss);color:#fff;border-color:transparent"' : ''}>${label}</button></div>`);
+}
+
+function welcomeSheet() {
+  const f = S.settings.firstName || '';
+  openSheet(`<div class="welcome"><div class="logo">${LOGO}</div>
+    <h3>Bienvenue${f ? ' ' + esc(f) : ''} !</h3>
+    <p>PnL Ledger est votre journal de trading. Notez chaque trade, et votre calendrier se colore en vert les jours gagnants et en rouge les jours perdants.</p>
+    <div class="steps3">
+      <div><i>1</i><span>Touchez le <b>+</b> vert pour noter un trade.</span></div>
+      <div><i>2</i><span>Suivez vos jours dans le <b>Calendrier</b> et vos chiffres dans <b>Stats</b>.</span></div>
+      <div><i>3</i><span>Faites une <b>sauvegarde</b> chaque semaine dans Réglages.</span></div>
+    </div>
+    <div class="btns" style="width:100%;padding:4px 0 0">
+      ${S.installEvt && !matchMedia('(display-mode: standalone)').matches ? '<button class="btn pri" data-act="install">Installer l’appli</button>' : ''}
+      <button class="btn ${S.installEvt ? '' : 'pri'}" data-act="close">Commencer</button>
+      <button class="btn" data-act="guide">Lire le mode d’emploi</button>
+    </div></div>`);
+}
+
+function guideSheet(open) {
+  const sec = (id, n, title, body) => `<details class="glass" id="g-${id}" ${open === id ? 'open' : ''}><summary><span class="n">${n}</span>${title}<svg class="ch" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></summary><div class="gb">${body}</div></details>`;
+  const f = esc(S.settings.firstName || '');
+  openSheet(`<h3>Mode d’emploi${closeBtn}</h3>
+  <p class="note" style="margin:-6px 0 14px;padding:0">${f ? f + ', voici' : 'Voici'} tout ce qu’il faut savoir. Touchez une rubrique pour l’ouvrir.</p>
+  <div class="guide">
+  ${sec('install', 1, 'Installer l’appli sur votre Samsung', `
+    <p>Une fois installée, l’appli a son icône sur l’écran d’accueil, s’ouvre en plein écran et fonctionne même sans internet.</p>
+    <b>Avec Chrome</b><ol><li>Ouvrez le lien de l’appli dans <b>Chrome</b>.</li><li>Touchez <span class="kbd">⋮</span> en haut à droite.</li><li>Touchez <b>Ajouter à l’écran d’accueil</b>, puis <b>Installer</b>.</li></ol>
+    <b>Avec Samsung Internet</b><ol><li>Ouvrez le lien dans <b>Samsung Internet</b>.</li><li>Touchez <span class="kbd">≡</span> en bas à droite.</li><li>Touchez <b>Ajouter la page à</b>, puis <b>Écran d’accueil</b>.</li></ol>
+    <div class="tip">Ensuite, ouvrez toujours l’appli depuis son icône PnL Ledger. Vos trades sont liés au navigateur qui l’a installée : n’alternez pas entre Chrome et Samsung Internet.</div>`)}
+  ${sec('add', 2, 'Ajouter un trade', `
+    <ol><li>Touchez le bouton vert <span class="kbd">+</span> en bas à droite.</li><li>Choisissez <b>Gain</b> ou <b>Perte</b>.</li><li>Tapez le montant, sans signe moins : l’appli s’en charge.</li><li>Vérifiez la date (aujourd’hui par défaut).</li><li>Si vous voulez, ajoutez l’actif (EURUSD, XAUUSD…), le sens (Achat ou Vente), les frais, la stratégie et une note.</li><li>Touchez <b>Enregistrer</b>.</li></ol>
+    <div class="tip">Les frais sont retirés du résultat. Exemple : gain de 10 000 et frais de 500, le trade compte pour +9 500.</div>
+    <p>Pour noter un trade d’un autre jour, touchez ce jour dans le calendrier, puis <b>Ajouter un trade ce jour</b>.</p>`)}
+  ${sec('cal', 3, 'Lire le calendrier', `
+    <ul><li><b class="pos">Vert</b> : journée gagnante. <b class="neg">Rouge</b> : journée perdante. Plus la couleur est foncée, plus la journée a été grosse.</li><li>Le petit chiffre sous la date est le résultat du jour (k = mille, M = million).</li><li>Le jour d’aujourd’hui est entouré.</li><li>Les flèches <span class="kbd">‹</span> <span class="kbd">›</span> changent de mois. Touchez le nom du mois pour revenir au mois en cours.</li><li>Touchez un jour pour voir ses trades.</li><li>En bas : le total de chaque semaine.</li></ul>`)}
+  ${sec('edit', 4, 'Modifier ou supprimer un trade', `
+    <ol><li>Ouvrez l’onglet <b>Journal</b> (ou touchez le jour dans le calendrier).</li><li>Touchez le trade.</li><li>Changez ce que vous voulez et touchez <b>Enregistrer les modifications</b>.</li><li>Pour le supprimer : <b>Supprimer ce trade</b>, puis confirmez.</li></ol>
+    <p>La barre de recherche du Journal retrouve un trade par actif, stratégie ou mot de la note.</p>`)}
+  ${sec('stats', 5, 'Comprendre les statistiques', `
+    <p>Choisissez la période en haut : Mois, 3 mois, Année ou Tout.</p>
+    <ul><li><b>P&L net</b> : ce que vous avez gagné ou perdu au total, frais compris.</li><li><b>Courbe de capital</b> : l’évolution de votre compte jour après jour.</li><li><b>Taux de réussite</b> : part des trades gagnants.</li><li><b>Profit factor</b> : gains ÷ pertes. Au-dessus de 1, vous gagnez plus que vous ne perdez.</li><li><b>Espérance</b> : ce que rapporte un trade en moyenne.</li><li><b>Gain moyen / Perte moyenne</b> et leur <b>ratio</b> : combien vous gagnez quand vous gagnez, par rapport à ce que vous perdez quand vous perdez.</li><li><b>Drawdown max</b> : la plus forte baisse depuis un sommet.</li><li><b>Séries</b> : le plus grand nombre de gains, puis de pertes, d’affilée.</li><li><b>Par jour</b> et <b>par actif</b> : où vous gagnez et où vous perdez.</li></ul>
+    <div class="tip">Indiquez votre capital de départ dans Réglages pour voir la courbe en vrai montant et votre rendement en %.</div>`)}
+  ${sec('backup', 6, 'Sauvegarder et ne rien perdre', `
+    <p>Vos trades sont enregistrés <b>uniquement sur ce téléphone</b>. Personne d’autre ne les voit.</p>
+    <b>Faire une sauvegarde (1 fois par semaine)</b><ol><li>Allez dans <b>Réglages</b>.</li><li>Touchez <b>Sauvegarder maintenant</b>.</li><li>Choisissez où l’envoyer : <b>Google Drive</b>, <b>WhatsApp</b> (à vous-même), e-mail, ou <b>Mes fichiers</b>.</li></ol>
+    <p>Le fichier s’appelle <b>pnl-ledger-sauvegarde-</b> suivi de la date. Gardez au moins le plus récent.</p>
+    <div class="warn">Sans sauvegarde, vous perdez tout si vous désinstallez l’appli, effacez les données du navigateur ou changez de téléphone. Un rappel apparaît si la dernière sauvegarde a plus de 7 jours.</div>`)}
+  ${sec('restore', 7, 'Restaurer sur un nouveau téléphone', `
+    <ol><li>Installez l’appli sur le nouveau téléphone (rubrique 1).</li><li>Récupérez le fichier de sauvegarde sur ce téléphone (Drive, WhatsApp…).</li><li>Dans l’appli : <b>Réglages</b>, puis <b>Restaurer une sauvegarde</b>.</li><li>Choisissez le fichier. Vos trades reviennent.</li></ol>
+    <p>La restauration ajoute les trades qui manquent sans créer de doublons. Vous pouvez donc restaurer plusieurs fois sans problème.</p>`)}
+  ${sec('settings', 8, 'Réglages et tableur', `
+    <ul><li><b>Prénom / Nom</b> : pour l’accueil.</li><li><b>Devise</b> : FCFA, €, $… (ne convertit pas les montants, change seulement l’affichage).</li><li><b>Apparence</b> : clair, sombre ou automatique.</li><li><b>Exporter en tableur</b> : crée un fichier CSV qui s’ouvre dans Excel ou Google Sheets.</li><li><b>Importer un CSV</b> : colonnes date (AAAA-MM-JJ), actif, sens, resultat, frais, setup, note.</li><li><b>Exemples</b> : de faux trades pour découvrir l’appli, à retirer en un geste.</li><li><b>Tout effacer</b> : supprime tous les trades. Faites une sauvegarde avant.</li></ul>`)}
+  ${sec('faq', 9, 'Questions fréquentes', `
+    <p><b>Faut-il internet ?</b> Seulement la première fois pour ouvrir le lien. Ensuite l’appli marche hors ligne.</p>
+    <p><b>Mes trades sont-ils envoyés quelque part ?</b> Non. Ils restent sur le téléphone, sauf quand vous envoyez vous-même une sauvegarde.</p>
+    <p><b>J’ai fait une erreur de montant.</b> Touchez le trade dans le Journal et corrigez-le.</p>
+    <p><b>L’appli a disparu de l’écran d’accueil.</b> Rouvrez le lien dans le même navigateur : vos trades sont toujours là tant que vous n’avez pas effacé les données du navigateur.</p>
+    <p><b>Le bouton Sauvegarder ne propose pas Drive.</b> Le fichier est alors enregistré dans <b>Mes fichiers › Téléchargements</b>.</p>`)}
+  </div>`);
+}
+
+/* ---------- demo, backup, csv ---------- */
+function demoTrades() {
+  const syms = ['EURUSD', 'XAUUSD', 'NAS100', 'BTCUSD', 'GBPJPY'], setups = ['Breakout', 'Pullback', 'Range', 'News'];
+  const out = [], now = new Date(); let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const k = noDec() ? 600 : 1;
+  for (let i = 45; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i); if (d.getDay() === 0 || d.getDay() === 6) continue;
+    const n = 1 + Math.floor(rnd() * 3);
+    for (let j = 0; j < n; j++) {
+      const win = rnd() < .56, amt = Math.round((win ? 40 + rnd() * 220 : -(30 + rnd() * 150)) * k);
+      out.push({ id: 'demo-' + key(d) + '-' + j, date: key(d), symbol: syms[Math.floor(rnd() * syms.length)], side: rnd() < .6 ? 'long' : 'short', pnl: amt, fees: Math.round(rnd() * 6 * k), setup: setups[Math.floor(rnd() * setups.length)], note: '', demo: true, createdAt: new Date(d.getTime() + j * 3600e3).toISOString() });
+    }
+  }
+  return out;
+}
+
+async function deliverFile(name, text, mime) {
+  const blob = new Blob([text], { type: mime });
+  try {
+    const file = new File([blob], name, { type: mime });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return 'shared'; }
+  } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); return 'downloaded';
+}
+async function doBackup() {
+  if (!S.trades.length) return toast('Aucun trade à sauvegarder');
+  const data = JSON.stringify({ app: 'pnl-ledger', v: 1, date: new Date().toISOString(), trades: S.trades, settings: S.settings }, null, 1);
+  const r = await deliverFile('pnl-ledger-sauvegarde-' + todayKey() + '.json', data, 'application/json');
+  if (r === 'cancel') return toast('Sauvegarde annulée');
+  S.meta.lastBackup = new Date().toISOString(); persist(); render();
+  toast(r === 'shared' ? 'Sauvegarde envoyée' : 'Sauvegarde enregistrée dans Téléchargements');
+}
+function toCSV() {
+  const q = v => { const s = String(v ?? ''); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const rows = [['date', 'actif', 'sens', 'resultat', 'frais', 'net', 'setup', 'note']];
+  [...S.trades].sort((a, b) => a.date < b.date ? -1 : 1).forEach(t => rows.push([t.date, t.symbol, t.side, t.pnl, t.fees || 0, net(t), t.setup, t.note]));
+  return rows.map(r => r.map(q).join(',')).join('\n');
+}
+function parseCSV(text) {
+  const rows = []; let row = [], f = '', qd = false; const h0 = text.split('\n')[0];
+  const delim = (h0.match(/;/g) || []).length > (h0.match(/,/g) || []).length ? ';' : ',';
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (qd) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else qd = false; } else f += c; }
+    else if (c === '"') qd = true; else if (c === delim) { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  const head = (rows.shift() || []).map(h => h.replace(/^﻿/, '').trim().toLowerCase());
+  const ix = names => head.findIndex(h => names.includes(h));
+  const I = { date: ix(['date']), sym: ix(['actif', 'symbol', 'symbole', 'asset']), side: ix(['sens', 'side']), pnl: ix(['resultat', 'résultat', 'pnl', 'profit']), fees: ix(['frais', 'fees', 'commission']), setup: ix(['setup', 'strategie', 'stratégie']), note: ix(['note', 'notes', 'comment']) };
+  if (I.date < 0 || I.pnl < 0) return [];
+  const num = s => Number(String(s ?? '').replace(/\s/g, '').replace(',', '.')) || 0, g = (r, i) => i >= 0 ? (r[i] || '').trim() : '';
+  return rows.filter(r => /^\d{4}-\d{2}-\d{2}$/.test(g(r, I.date))).map(r => ({
+    id: 'csv-' + g(r, I.date) + '-' + Math.abs([...r.join('|')].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)).toString(36),
+    date: g(r, I.date), symbol: g(r, I.sym).toUpperCase(), side: /short|vente|sell/i.test(g(r, I.side)) ? 'short' : 'long',
+    pnl: num(g(r, I.pnl)), fees: Math.abs(num(g(r, I.fees))), setup: g(r, I.setup), note: g(r, I.note), createdAt: new Date().toISOString()
+  }));
+}
+function mergeTrades(list) {
+  const ids = new Set(S.trades.map(t => t.id)); let added = 0;
+  for (const t of list) if (t && t.id && t.date && !ids.has(t.id)) { S.trades.push(t); ids.add(t.id); added++; }
+  persist(); render(); return added;
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.closest('#tabbar')) { S.prefs.view = b.dataset.v; lsSet(LS_PREF, S.prefs); render(); window.scrollTo({ top: 0 }); return; }
+  if (b.id === 'fab') return tradeSheet();
+  if (b.dataset.day) return daySheet(b.dataset.day);
+  if (b.dataset.edit) { const t = S.trades.find(x => x.id === b.dataset.edit); if (t) tradeSheet({ ...t }); return; }
+  if (b.dataset.addOn) return tradeSheet(null, b.dataset.addOn);
+  if (b.dataset.period) { S.period = b.dataset.period; render(); return; }
+  if (b.dataset.sign) { const f = $('#tf'); f.dataset.sign = b.dataset.sign; b.parentNode.querySelectorAll('button').forEach(x => x.className = ''); b.className = 'on ' + (b.dataset.sign > 0 ? 'g' : 'r'); $('#fPnl').className = 'amount ' + (b.dataset.sign > 0 ? 'pos' : 'neg'); return; }
+  if (b.dataset.side) { $('#tf').dataset.side = b.dataset.side; b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); return; }
+  const a = b.dataset.act; if (!a) return;
+  if (a === 'prev' || a === 'next') { S.month = new Date(S.month.getFullYear(), S.month.getMonth() + (a === 'next' ? 1 : -1), 1); render(); }
+  else if (a === 'thismonth') { const n = new Date(); S.month = new Date(n.getFullYear(), n.getMonth(), 1); render(); }
+  else if (a === 'add') tradeSheet();
+  else if (a === 'close') closeSheet();
+  else if (a === 'guide') guideSheet();
+  else if (a === 'guide-install') guideSheet('install');
+  else if (a === 'install') { if (!S.installEvt) return guideSheet('install'); S.installEvt.prompt(); const r = await S.installEvt.userChoice.catch(() => ({})); S.installEvt = null; closeSheet(); render(); if (r.outcome === 'accepted') toast('Appli installée sur l’écran d’accueil'); }
+  else if (a === 'askdel') { $('#delZone').innerHTML = `<div class="confirm"><button class="btn" type="button" data-act="nodel">Annuler</button><button class="btn" type="button" data-act="dodel" style="background:var(--loss);color:#fff;border-color:transparent">Supprimer</button></div>`; }
+  else if (a === 'nodel') { $('#delZone').innerHTML = `<button class="btn dng" type="button" data-act="askdel">Supprimer ce trade</button>`; }
+  else if (a === 'dodel') { const id = $('#tf').dataset.id; closeSheet(); removeTrade(id); toast('Trade supprimé'); }
+  else if (a === 'demo') { const n = mergeTrades(demoTrades()); toast(n + ' exemples ajoutés'); }
+  else if (a === 'undemo') { S.trades = S.trades.filter(t => !t.demo); persist(); render(); toast('Exemples retirés'); }
+  else if (a === 'wipe') confirmSheet('Tout effacer ?', `Les ${S.trades.length} trades seront supprimés de ce téléphone. Faites une sauvegarde avant si vous voulez les garder.`, 'Tout effacer', 'dowipe');
+  else if (a === 'dowipe') { closeSheet(); S.trades = []; persist(); render(); toast('Toutes les données ont été effacées'); }
+  else if (a === 'backup') doBackup();
+  else if (a === 'restore') $('#fileIn').click();
+  else if (a === 'export') { if (!S.trades.length) return toast('Aucun trade à exporter'); const r = await deliverFile('pnl-ledger-' + todayKey() + '.csv', '﻿' + toCSV(), 'text/csv'); if (r !== 'cancel') toast('Fichier tableur prêt'); }
+});
+$('#scrim').addEventListener('click', closeSheet);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+document.addEventListener('input', e => { if (e.target.id === 'q') { S.query = e.target.value; const p = e.target.selectionStart; render(); const q = $('#q'); q.focus(); q.setSelectionRange(p, p); } });
+document.addEventListener('change', e => {
+  const id = e.target.id, v = e.target.value;
+  if (id === 'sCur') { S.settings.currency = v; persist(); render(); }
+  else if (id === 'sCap') { S.settings.capital = Number(v) || 0; persist(); }
+  else if (id === 'sFirst') { S.settings.firstName = v.trim(); persist(); $('#hello').innerHTML = greeting(); }
+  else if (id === 'sLast') { S.settings.lastName = v.trim(); persist(); render(); $('#hello').innerHTML = greeting(); }
+  else if (id === 'sTheme') { S.prefs.theme = v; lsSet(LS_PREF, S.prefs); applyTheme(); }
+});
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'tf') return; e.preventDefault();
+  const f = e.target, amt = Math.abs(Number(String($('#fPnl').value).replace(',', '.')) || 0);
+  if (!$('#fDate').value) return toast('Choisissez une date');
+  const t = { id: f.dataset.id, date: $('#fDate').value, symbol: $('#fSym').value.trim().toUpperCase(), side: f.dataset.side,
+    pnl: Math.round(amt * Number(f.dataset.sign) * 100) / 100, fees: Math.abs(Number(String($('#fFees').value).replace(',', '.')) || 0),
+    setup: $('#fSetup').value.trim(), note: $('#fNote').value.trim(), createdAt: f.dataset.created || new Date().toISOString() };
+  const isNew = f.dataset.new === '1'; closeSheet();
+  const d = parseKey(t.date); S.month = new Date(d.getFullYear(), d.getMonth(), 1);
+  saveTrade(t); toast(isNew ? 'Trade enregistré · ' + money(net(t)) : 'Trade modifié');
+});
+$('#fileIn').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  try {
+    const text = await file.text(); let list = [], isBackup = false;
+    try { const j = JSON.parse(text); if (j && Array.isArray(j.trades)) { list = j.trades; isBackup = true; if (j.settings && !S.trades.length) S.settings = { ...S.settings, ...j.settings }; } } catch { list = parseCSV(text); }
+    if (!list.length) return toast('Ce fichier ne contient aucun trade reconnu');
+    const n = mergeTrades(list); closeSheet();
+    toast(n ? `${n} trade${n > 1 ? 's' : ''} ${isBackup ? 'restauré' : 'importé'}${n > 1 ? 's' : ''}` : 'Tous ces trades étaient déjà là');
+  } catch { toast('Impossible de lire ce fichier'); }
+});
+
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installEvt = e; if (S.prefs.view === 'set') render(); });
+window.addEventListener('appinstalled', () => { S.installEvt = null; toast('Appli installée'); });
+
+/* ---------- boot ---------- */
+const LOGO = document.querySelector('.brand .logo').innerHTML;
+applyTheme(); $('#hello').innerHTML = greeting(); render();
+if (!S.meta.welcomed) { S.meta.welcomed = true; persist(); setTimeout(welcomeSheet, 400); }
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(p => { S.persisted = p; }).catch(() => {});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
